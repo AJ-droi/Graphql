@@ -9,6 +9,7 @@ const generateJWTToken = (userId: string) => {
   return jwt.sign({ userId }, SECRET_KEY, { expiresIn: '1h' });
 };
 
+
 const resolvers = {
   Query: {
     getUsers: async () => {
@@ -18,7 +19,7 @@ const resolvers = {
     }
   },
   Mutation: {
-    registerUser: async (_:any, { email, password}: {email:string, password:string}) => {
+    registerUser: async (_:any, { email, password, name}: {email:string, password:string, name:string}) => {
       try {
         // Check if the email already exists in the database
         const existingUser = await User.findOne({ email });
@@ -33,6 +34,7 @@ const resolvers = {
         const newUser = new User({
           email,
           password: hashedPassword,
+          name
         });
         await newUser.save();
 
@@ -61,7 +63,7 @@ const resolvers = {
 
         // Generate and return JWT token
         const token = generateJWTToken(user._id);
-        return { token };
+        return {user, token };
       } catch (error) {
         console.error('Error during login:', error);
         throw new Error('Internal server error');
@@ -94,31 +96,36 @@ const resolvers = {
     //   }
     // },
 
-    // updateUser: async (_, { userId, newEmail, newPassword }) => {
-    //   try {
-    //     // Fetch the user from the database
-    //     const user = await User.findById(userId);
-    //     if (!user) {
-    //       throw new Error('User not found');
-    //     }
+    updateUser: async (_:any, { token, name}:{token:string, name:string}) => {
+      try {
+        // Fetch the user from the database
 
-    //     // Update user data
-    //     if (newEmail) {
-    //       user.email = newEmail;
-    //     }
+        const decodedToken = jwt.verify(token, SECRET_KEY);
 
-    //     if (newPassword) {
-    //       user.password = await bcrypt.hash(newPassword, 10);
-    //     }
+        const {userId} = decodedToken as {[key:string]:string}
+       
+        console.log("hello")
+        const user = await User.findById(userId);
+        if (!user) {
+          throw new Error('User not found');
+        }
 
-    //     await user.save();
+        // Update user data
+        if (name) {
+          user.name = name;
+        }
 
-    //     return { message: 'User updated successfully' };
-    //   } catch (error) {
-    //     console.error('Error during user update:', error);
-    //     throw new Error('Internal server error');
-    //   }
-    // },
+
+        await user.save();
+
+        const updatedUser = await User.findById(userId);
+
+        return { message: 'User updated successfully', user:updatedUser };
+      } catch (error) {
+        console.error('Error during user update:', error);
+        throw new Error('Internal server error');
+      }
+    },
 
     deleteUser: async (_:any, { userId } : {userId:string}) => {
       try {
